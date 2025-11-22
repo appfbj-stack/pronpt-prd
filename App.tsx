@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Project, AppView } from './types';
 import { generateAppProject } from './services/geminiService';
-import { PlusIcon, SparklesIcon, CopyIcon, ArrowLeftIcon, TrashIcon, PencilIcon, CheckIcon, XMarkIcon } from './components/Icons';
+import { PlusIcon, SparklesIcon, CopyIcon, ArrowLeftIcon, TrashIcon, PencilIcon, CheckIcon, XMarkIcon, DocumentTextIcon } from './components/Icons';
 import { ProjectCard } from './components/ProjectCard';
 
 const App: React.FC = () => {
@@ -11,8 +11,10 @@ const App: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   // Form State
+  const [creationMode, setCreationMode] = useState<'AI' | 'MANUAL'>('AI');
   const [appName, setAppName] = useState('');
   const [appDescription, setAppDescription] = useState('');
+  const [manualPrd, setManualPrd] = useState(''); // New state for manual PRD
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -61,8 +63,7 @@ const App: React.FC = () => {
       };
 
       setProjects(prev => [newProject, ...prev]);
-      setAppName('');
-      setAppDescription('');
+      resetForm();
       setIsGenerating(false);
       setSelectedProjectId(newProject.id);
       setView(AppView.DETAILS);
@@ -72,6 +73,35 @@ const App: React.FC = () => {
       setIsGenerating(false);
     }
   }, [appName, appDescription]);
+
+  const handleManualCreate = useCallback(() => {
+    if (!appName.trim() || !appDescription.trim()) {
+      setErrorMsg("Por favor, preencha o nome e a descrição.");
+      return;
+    }
+
+    const newProject: Project = {
+      id: Date.now().toString(),
+      name: appName,
+      description: appDescription,
+      fullPrd: manualPrd.trim() || appDescription, // Use description as fallback if no PRD provided
+      imageUrl: undefined, // No image for manual create
+      createdAt: Date.now(),
+      modelUsed: 'Entrada Manual'
+    };
+
+    setProjects(prev => [newProject, ...prev]);
+    resetForm();
+    setSelectedProjectId(newProject.id);
+    setView(AppView.DETAILS);
+  }, [appName, appDescription, manualPrd]);
+
+  const resetForm = () => {
+    setAppName('');
+    setAppDescription('');
+    setManualPrd('');
+    setCreationMode('AI');
+  };
 
   const handleDeleteProject = (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este projeto?')) {
@@ -190,8 +220,41 @@ const App: React.FC = () => {
       </button>
 
       <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-xl">
-        <h2 className="text-2xl font-bold text-white mb-2">Criar Novo Prompt de App</h2>
-        <p className="text-slate-400 mb-8">A IA irá gerar um documento completo (PRD) e um ícone para sua ideia.</p>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-white">Criar Novo Projeto</h2>
+        </div>
+
+        {/* Mode Toggle Tabs */}
+        <div className="flex gap-2 mb-8 bg-slate-900/50 p-1.5 rounded-xl border border-slate-700/50">
+          <button
+            onClick={() => setCreationMode('AI')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium text-sm transition-all ${
+              creationMode === 'AI' 
+                ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/20' 
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <SparklesIcon className="w-4 h-4" />
+            Gerar com IA
+          </button>
+          <button
+            onClick={() => setCreationMode('MANUAL')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-medium text-sm transition-all ${
+              creationMode === 'MANUAL' 
+                ? 'bg-slate-700 text-white shadow-lg' 
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <DocumentTextIcon className="w-4 h-4" />
+            Criar Manualmente
+          </button>
+        </div>
+
+        <p className="text-slate-400 mb-6">
+          {creationMode === 'AI' 
+            ? 'A IA irá gerar um documento completo (PRD) e um ícone para sua ideia.' 
+            : 'Insira manualmente todos os detalhes do seu projeto.'}
+        </p>
 
         <div className="space-y-6">
           <div>
@@ -206,14 +269,26 @@ const App: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Descreva sua ideia</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Descrição Curta</label>
             <textarea
               value={appDescription}
               onChange={(e) => setAppDescription(e.target.value)}
-              placeholder="Ex: Um aplicativo para rastrear exercícios de calistenia, com gráficos de progresso e integração social..."
-              className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all resize-none"
+              placeholder="Ex: Um aplicativo para rastrear exercícios de calistenia..."
+              className="w-full h-24 bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all resize-none"
             />
           </div>
+
+          {creationMode === 'MANUAL' && (
+            <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+              <label className="block text-sm font-medium text-slate-300 mb-2">Documento PRD / Conteúdo Detalhado</label>
+              <textarea
+                value={manualPrd}
+                onChange={(e) => setManualPrd(e.target.value)}
+                placeholder="Cole ou digite aqui todo o conteúdo do seu PRD, prompts ou especificações técnicas..."
+                className="w-full h-64 bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all resize-y font-mono text-sm leading-relaxed"
+              />
+            </div>
+          )}
 
           {errorMsg && (
             <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded-lg border border-red-900/50">
@@ -221,27 +296,37 @@ const App: React.FC = () => {
             </div>
           )}
 
-          <button
-            onClick={handleCreateProject}
-            disabled={isGenerating}
-            className={`w-full flex items-center justify-center gap-2 py-4 rounded-lg text-white font-bold text-lg transition-all ${
-              isGenerating 
-                ? 'bg-slate-700 cursor-wait' 
-                : 'bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 shadow-lg shadow-brand-900/20'
-            }`}
-          >
-            {isGenerating ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                Gerando PRD e Design...
-              </>
-            ) : (
-              <>
-                <SparklesIcon />
-                Gerar Magia
-              </>
-            )}
-          </button>
+          {creationMode === 'AI' ? (
+            <button
+              onClick={handleCreateProject}
+              disabled={isGenerating}
+              className={`w-full flex items-center justify-center gap-2 py-4 rounded-lg text-white font-bold text-lg transition-all ${
+                isGenerating 
+                  ? 'bg-slate-700 cursor-wait' 
+                  : 'bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 shadow-lg shadow-brand-900/20'
+              }`}
+            >
+              {isGenerating ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Gerando PRD e Design...
+                </>
+              ) : (
+                <>
+                  <SparklesIcon />
+                  Gerar Magia
+                </>
+              )}
+            </button>
+          ) : (
+             <button
+              onClick={handleManualCreate}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-lg text-white font-bold text-lg transition-all bg-slate-600 hover:bg-slate-500 border border-slate-500 hover:border-slate-400"
+            >
+              <DocumentTextIcon className="w-5 h-5" />
+              Salvar Projeto Manual
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -296,8 +381,9 @@ const App: React.FC = () => {
                 {project.imageUrl ? (
                   <img src={project.imageUrl} alt={project.name} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-600">
-                    Sem Imagem
+                  <div className="w-full h-full flex items-center justify-center text-slate-600 flex-col gap-2">
+                    <span className="text-4xl font-bold opacity-20">{project.name.charAt(0)}</span>
+                    <span className="text-xs text-slate-500">Sem Imagem</span>
                   </div>
                 )}
               </div>
@@ -340,8 +426,15 @@ const App: React.FC = () => {
                 <>
                   <h1 className="text-2xl font-bold text-white mb-2">{project.name}</h1>
                   <p className="text-slate-400 text-sm mb-4 break-words">{project.description}</p>
-                  <div className="text-xs text-slate-500">
-                    Gerado em: {new Date(project.createdAt).toLocaleString()}
+                  <div className="text-xs text-slate-500 border-t border-slate-700 pt-4 mt-4">
+                    <div className="flex justify-between mb-1">
+                      <span>Criado em:</span>
+                      <span className="text-slate-400">{new Date(project.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Modelo:</span>
+                      <span className="text-slate-400">{project.modelUsed}</span>
+                    </div>
                   </div>
                 </>
               )}
@@ -354,14 +447,14 @@ const App: React.FC = () => {
               <div className="bg-slate-900/50 border-b border-slate-700 p-4 flex justify-between items-center">
                 <h3 className="font-bold text-white flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  PRD & Prompt Gerado
+                  PRD & Prompt
                 </h3>
                 <button
                   onClick={() => handleCopyToClipboard(project.fullPrd)}
                   className="flex items-center gap-2 text-xs bg-brand-600/20 text-brand-400 border border-brand-600/50 hover:bg-brand-600/30 px-3 py-1.5 rounded-full transition-colors"
                 >
                   <CopyIcon className="w-3 h-3" />
-                  Copiar Prompt
+                  Copiar Conteúdo
                 </button>
               </div>
               <div className="p-6 overflow-y-auto flex-1">
